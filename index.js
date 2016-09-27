@@ -25,7 +25,7 @@ const CLIENT_EVENTS = require('@slack/client').CLIENT_EVENTS;
 const RTM_EVENTS = require('@slack/client').RTM_EVENTS;
 
 //봇 사용자 토큰
-const token = 'xoxb-84506715765-6ceJVsYlERINt3f3RiaqYtNq'; //slack bot token
+const token = '사용자 토큰'; //slack bot token
 
 //새로 RTM 클라이언트 생성(logLevel 은 debug 로)
 const rtm = new RtmClient(token, {logLevel: 'debug'});
@@ -36,15 +36,15 @@ const nodemailer = require('nodemailer');
 const markdown = require('nodemailer-markdown').markdown;
 
 // create reusable transporter object using the default SMTP transport
-const transporter = nodemailer.createTransport('smtps://esstarstudy%40gmail.com:s3401662@smtp.gmail.com');
+const transporter = nodemailer.createTransport('smtps://지메일아이디%40gmail.com:비밀번호@smtp.gmail.com');
 
 //posting function
 const posting = function(title, md){
   // setup e-mail data with unicode symbols
   transporter.use('compile', markdown());
   let mailOptions = {
-      from: 'es2015study <esstarstudy@gmail.com>', // sender address
-      to: 'hega782dani@post.wordpress.com', // list of receivers
+      from: '보내는사람 <보내는메일@gmail.com>', // sender address
+      to: '워드프레스메일주소@post.wordpress.com', // list of receivers
       subject: title, // Subject line
       //text: text //'Hello world ?', // plaintext body
       markdown: md
