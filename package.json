@@ -13,6 +13,9 @@
   "author": "chiyodad",
   "license": "MIT",
   "dependencies": {
-    "@slack/client": "^3.6.0"
+    "@slack/client": "^3.6.0",
+    "moment": "^2.15.1",
+    "nodemailer": "^2.6.4",
+    "nodemailer-markdown": "^1.0.1"
   }
 }
