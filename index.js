@@ -25,7 +25,7 @@ const CLIENT_EVENTS = require('@slack/client').CLIENT_EVENTS;
 const RTM_EVENTS = require('@slack/client').RTM_EVENTS;
 
 //봇 사용자 토큰
-const token = 'xoxb-84506715765-6ceJVsYlERINt3f3RiaqYtNq'; //bot-blog
+const token = 'xoxb-84506715765-6ceJVsYlERINt3f3RiaqYtNq'; //slack bot token
 
 //새로 RTM 클라이언트 생성(logLevel 은 debug 로)
 const rtm = new RtmClient(token, {logLevel: 'debug'});
