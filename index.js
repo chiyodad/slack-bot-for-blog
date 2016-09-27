@@ -5,10 +5,8 @@
 http://proinlab.com/archives/1885
 https://youngbin.xyz/blog//2016/05/24/building-nodejs-based-conference-logging-bot-for-slack.html
 https://github.com/slackhq/node-slack-sdk/blob/master/README.md
-3. 모은 로그를 잘 정리하고
-4. 워드프레스닷컴에서 워프 개설
-5. 블로그쓰기 api에 대해 공부
-6. 해당 xml형식으로 로그를 정리한걸 전송 =>  email 로 보내기
+3. 모은 로그를 MD로 만들고
+4. 워드프레스닷컴에서 email 로 보내기
 */
 
 //moment js
@@ -82,79 +80,85 @@ let startUser = undefined;
 
 rtm.on(RTM_EVENTS.MESSAGE, function (message) {
   console.log("<<<<<<<<<<<<<<<<< 기록 상태 : " + isRecording + ">>>>>>>>>>>>>>>>>>>>.");
-  console.log("<<<<<<<<<<<<<<<<< 채널 : " + message.channel + ">>>>>>>>>>>>>>>>>>>>.");
-  let text = message.text;
-  if(text.includes('&lt;article')) {
+
+  // 기본정보 세팅
+  let userId = message.user||message.message.user; //에디트로 메시지 변경시에는 JSON구조가 바뀜
+  let text = message.text||message.message.text; //에디트로 메시지 변경시에는 JSON구조가 바뀜
+  let teamId = message.team; //에디트로 메시지 변경시에는 JSON구조가 바뀜
+  let channelId = message.channel; //에디트로 메시지 변경시에는 JSON구조가 바뀜
+
+  //시작 태그 확인
+  if(message.text&&text.includes('&lt;article') > 0) {
     //메시지 내용에 <article 이 포함되어 있고
     if(!isRecording){
-      //회의중이 아니면(isRecording 이 false 이면)
-      //회의 시작 처리
-      isRecording = true;
-      //startChanel = message.channel;
-      //startUser = message.user;
-
+      //기록중이 아니면(isRecording 이 false 이면)
+      //기록 시작 처리
       if(!text.includes('title')){
         console.log(text);
-        rtm.sendMessage(' "" 안에 제목을 써주세요.', message.channel);
+        rtm.sendMessage('시작 양식 : <article title="제목"> / 제목을 써주세요.', channelId);
         return;
       }
 
       title = text.substring(text.indexOf('title')+7, text.lastIndexOf('"')).trim() ;
 
       if(!title.length){
-        rtm.sendMessage(' "" 안에 제목을 써주세요.', message.channel);
+        rtm.sendMessage('시작 양식 : <article title="제목"> / 제목을 써주세요.', channelId);
         return;
       }
 
-      contents.push({"username":rtm.dataStore.getUserById(message.user).name, "time": moment().utcOffset(timezone).format(timeformat), "text": text});
-      rtm.sendMessage("["+ title + "]"+  " 대화 기록을 시작합니다.", message.channel);
+      isRecording = true;
+      startChanel = channelId;
+      startUser = userId;
+      contents.push({"type":"subject  ", "username":rtm.dataStore.getUserById(userId).name, "time": moment().utcOffset(timezone).format(timeformat), "text": text});
+      rtm.sendMessage("["+ title + "]"+  " 대화 기록을 시작합니다.", channelId);
 
     }else{
       //이미 회의중 처리
-      rtm.sendMessage("진행 중인 대화가 있습니다.", message.channel);
+      rtm.sendMessage("진행 중인 대화 ["+ title + "]이(가)"+rtm.dataStore.getChannelById(startChanel).name+"  있습니다.", channelId);
     }
+  }else if(text.includes('&lt;/article&gt;')&&isRecording){
+    //메시지 내용에 </article> 이 포함 isRecording이 true 이고
+    if(startChanel == channelId &&startUser == userId){
+      //회의를 시작한 채널과 사용자의 고유번호값이 channel, user에 저장된 것과 같으면
+      //회의 종료 처리
+
+      let mdData = "";//마크다운 문법으로 처리한 데이터를 저장 해 둘 변수
+      //팀 이름 얻기
+      let username = rtm.dataStore.getUserById(userId).name + "("+userId+")";
+      let teamname = rtm.dataStore.getTeamById(teamId).name + "("+teamId+")";
+      let channelname = rtm.dataStore.getChannelById(channelId).name + "("+channelId+")";
+
+      mdData += "\n## 대화 정보\n";
+      mdData += "- Slack 팀 이름 : " + teamname +"\n";
+      mdData += "- Slack 채널 이름 : " + channelname +"\n";
+      mdData += "- 대화 주제 : " + title +"\n";
+      mdData += "- 대화 시작 및 종료한 사용자 : " + username +"\n";
+      mdData += "- 대화 시작 시각 : " + contents[0].time +"\n";
+      mdData += "- 대화 종료 시각 : " + contents[contents.length - 1].time +"\n";
+
+      // 대화 부분 처리
+       mdData += "\n\n## 대화 내용\n";
+       for(let i=0; i<contents.length; i++){
+           mdData += "- "+contents[i].username+ ": " +contents[i].text + "[" + contents[i].time + "]" + "\n";
+       }
+
+       console.log(mdData);
+
+       posting(title, mdData); //posting 하기
+       rtm.sendMessage("["+title+"]"+"대화 기록을 종료합니다.", channelId);
+       isRecording = false;
+       title = undefined;
+       startChanel = undefined;
+       startUser = undefined;
+       contents = [];
+
+      } else{
+        // 다른 사람이 대화 종료시
+        rtm.sendMessage(`${rtm.dataStore.getUserById(startUser).name} 회원이 ${rtm.dataStore.getChannelById(startChanel).name} 채널에서 </article> 로 대화를 종료해야 합니다.`, channelId);
+      }
+  } else if(isRecording){
+    contents.push({"type":"conversation", "username":rtm.dataStore.getUserById(userId).name, "time": moment().utcOffset(timezone).format(timeformat), "text": text});
   }
-  // }else if(text.includes('&lt;/article&gt;')&&isRecording){
-  //   //메시지 내용에 </article> 이 포함 isRecording이 true 이고
-  //   if(startChanel == message.channel&&startUser == message.user){
-  //     //회의를 시작한 채널과 사용자의 고유번호값이 channel, user에 저장된 것과 같으면
-  //     //회의 종료 처리
-  //
-  //     username = rtm.dataStore.getUserById(message.user).name + "("+message.user+")";
-  //     var mdData = "";//마크다운 문법으로 처리한 데이터를 저장 해 둘 변수
-  //     //팀 이름 얻기
-  //     var teamname = rtm.dataStore.getTeamById(message.team).name + "("+message.team+")";
-  //
-  //     mdData += "\n## 대화 정보\n";
-  //     mdData += "- Slack 팀 이름 : " + teamname +"\n";
-  //     mdData += "- Slack 채널 이름 : " + channelname +"\n";
-  //     mdData += "- 대화 주제 : " + title +"\n";
-  //     mdData += "- 대화 시작 및 종료한 사용자 : " + username +"\n";
-  //     mdData += "- 대화 시작 시각 : " + data[0].time +"\n";
-  //     mdData += "- 대화 종료 시각 : " + data[data.length - 1].time +"\n";
-  //
-  //     // 대화 부분 처리
-  //      mdData += "\n\n## 대화 내용\n";
-  //      for(let i=0; i<data.length; i++){
-  //          mdData += "- "+data[i].text + "[" + data[i].time + "]" + "\n";
-  //      }
-  //
-  //      //posting(title, md); //posting 하기
-  //      isRecording = false;
-  //      title = undefined;
-  //      startChanel = undefined;
-  //      startUser = undefined;
-  //      data = [];
-  //      rtm.sendMessage("대화 기록을 종료합니다.", message.channel);
-  //
-  //     } else{
-  //       // 다른 사람이 대화 종료시
-  //       rtm.sendMessage("대화를 시작한 사람이 대화를 시작한 채널에서 대화를 종료해야 합니다.", message.channel);
-  //     }
-  //   }
-  // // } else if(isRecording){
-  // //   data.push({"type":"subject  ", "time": moment().utcOffset(timezone).format(timeformat), "text": message.text});
-  // // }
 });
 
 //팀에서 채널이 새로 생성 되었다는 메시지 받기.
